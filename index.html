@@ -726,7 +726,8 @@
       sixFlags: [19.2957, -99.2097],
       gnp: [19.4052, -99.0952],
       pachuca: [20.1011, -98.7591],
-      puebla: [19.0414, -98.2063]
+      puebla: [19.0414, -98.2063],
+      aline: [19.3970, -99.0348] // Hombres Ilustres 133, Metropolitana 1ra Sección, Nezahualcóyotl
     };
 
     const stops = [
@@ -737,8 +738,8 @@
         signature:'Contigo, hasta el miedo se siente bonito.'
       },
       {
-        date:'05 SEP', title:'Un sábado tranquilo', mapLabel:'CDMX · nuestro sábado', location:'CAFÉ · CHAPATA · CHOCOLATE · JENGA', icon:'☕', image:'foto-5sep.jpg',
-        coords:CITY.coyoacan, zoom:13,
+        date:'05 SEP', title:'Un sábado tranquilo', mapLabel:'Casa de Alincita · Neza', location:'CASA · CAFÉ · CHAPATA · CHOCOLATE · JENGA', icon:'☕', image:'foto-5sep.jpg',
+        coords:CITY.aline, zoom:16,
         story:'Como era sábado tuvimos más tiempo para continuar juntos. Fue un día tranquilo: estuvimos en tu casa y después fuimos a probar una cafetería. Comimos una rica chapata, nuestro chocolate y jugamos Jenga. De esos planes sencillos que terminan siendo de mis favoritos porque, al final, lo importante siempre es estar contigo.'
       },
       {
@@ -753,8 +754,9 @@
         story:'Pasaron los días y nos volvimos a ver hasta el 13 de septiembre. Fuimos a probar algo que llevábamos tiempo queriendo conocer; sin embargo, caímos en las trampas de TikTok y no fue exactamente lo que esperábamos jajaja. Pero bueno, al menos disfrutamos esos chicharrones preparados y después nos fuimos al cine.'
       },
       {
-        date:'14 SEP', title:'Aunque el plan cambie', mapLabel:'Zócalo · CDMX', location:'CASA · ZÓCALO · LUCES', icon:'✨', image:'foto-14sep.jpg',
-        coords:[19.4326,-99.1332], zoom:15,
+        date:'14 SEP', title:'Aunque el plan cambie', mapLabel:'Neza → Zócalo · CDMX', location:'CASA · ZÓCALO · LUCES', icon:'✨', image:'foto-14sep.jpg',
+        coords:[19.4326,-99.1332], zoom:11,
+        trip:[CITY.aline,[19.4326,-99.1332]],
         story:'Pasamos la mayor parte del día en tu casa y tuvimos la bendición de poder pasar el lunes tranquilos. Más tarde, junto con tu mamá, fuimos al Zócalo para ver las luces. Para nuestra mala suerte cerraron y no pudimos verlas como queríamos, pero la pasamos bien: comimos algo rico y alcanzamos a verlas de lejitos. Sea cual sea el plan, salga bien o mal, yo siempre estaré ahí contigo.',
         signature:'El plan puede cambiar; mis ganas de estar contigo, no.'
       },
@@ -765,19 +767,20 @@
         story:'Era el día en que nació México. Me hubiera encantado pasar contigo esa noche, pero ese día sólo pude estar un rato. Te llevé unas flores y después regresé a Puebla. Fue una visita corta, pero verte aunque fuera por un momento hizo que valiera completamente la pena.'
       },
       {
-        date:'18 SEP', title:'Nuestra ruta de siempre', mapLabel:'CDMX · viernes de cine', location:'TRABAJO · REENCUENTRO · CINE', icon:'🎬', image:'foto-18sep.jpg',
-        coords:[19.4050,-99.1670], zoom:13,
-        trip:[CITY.puebla, [19.4050,-99.1670]],
+        date:'18 SEP', title:'Nuestra ruta de siempre', mapLabel:'Puebla → Casa de Alincita · Neza', location:'TRABAJO · CASA · CINE', icon:'🎬', image:'foto-18sep.jpg',
+        coords:CITY.aline, zoom:9,
+        trip:[CITY.puebla, CITY.aline],
         story:'Era viernes y, después de salir del trabajo, tomé la ruta de siempre. Esa vez ya estabas en tu casa, así que pasé por ti y fuimos al cine. Así pasamos nuestro viernes juntos: sencillo, tranquilo y feliz.'
       },
       {
-        date:'19 SEP', title:'Nuestro segundo gran concierto', mapLabel:'Estadio GNP · CDMX', location:'FAMILIA · CONCIERTO · ESTADIO GNP', icon:'🎤', image:'foto-19sep.jpg',
-        coords:CITY.gnp, zoom:15,
+        date:'19 SEP', title:'Nuestro segundo gran concierto', mapLabel:'Neza → Estadio GNP · CDMX', location:'CASA · NEGOCIO · FAMILIA · ESTADIO GNP', icon:'🎤', image:'foto-19sep.jpg',
+        coords:CITY.gnp, zoom:11,
+        trip:[CITY.aline,CITY.gnp],
         story:'Pasamos un rato en tu casa y en el negocio de tus papás. Más tarde fuimos a la fiesta de uno de tus primos; creo que fue una de las primeras ocasiones en las que conviví más con tus tías. Después nos fuimos al concierto. Fue mi primera vez en el Estadio GNP y nuestro segundo concierto masivo juntos. Aunque tuvimos un momento raro al inicio, terminamos pasándola muy bien. Regresar fue un caos, pero lo logramos; ya estábamos moridos jajaja, y así acabó nuestro día.'
       },
       {
-        date:'20 SEP', title:'Domingo de novios', mapLabel:'CDMX · domingo juntos', location:'CASA · PLENO · NOSOTROS', icon:'🏠', image:'foto-20sep.jpg',
-        coords:[19.3900,-99.1500], zoom:12,
+        date:'20 SEP', title:'Domingo de novios', mapLabel:'Casa de Alincita · Neza', location:'CASA · PLENO · NOSOTROS', icon:'🏠', image:'foto-20sep.jpg',
+        coords:CITY.aline, zoom:16,
         story:'Fue nuestro domingo de novios. Estuvimos principalmente en tu casa mientras terminabas tu Pleno. Así concluyó nuestra semana juntos, aunque todavía me quedaría unos días porque tendría que ir a Pachuca. A veces nuestro plan es simplemente estar ahí, acompañándonos mientras cada uno hace lo que necesita hacer, y también amo esos días.'
       },
       {
@@ -799,8 +802,8 @@
         story:'Pasaron los días hasta llegar al 26. Me acompañaste a mis rumbos para comprar mi celular y tuvimos un sábado de novios de acá para allá. Estuvimos en la plaza, buscamos ropa para Mía, me ayudaste a elegir ropa y después fuimos por un pancito rico con nuestros cafecitos. Seguimos pasando tiempo juntos y concluimos en el cine.'
       },
       {
-        date:'27 SEP', title:'Misión: terminar el Pleno', mapLabel:'CDMX · día de apoyo', location:'PLENO · NEGOCIO · CASA', icon:'📝', image:'foto-27sep.jpg',
-        coords:[19.3900,-99.1500], zoom:12,
+        date:'27 SEP', title:'Misión: terminar el Pleno', mapLabel:'Casa + negocio familiar · Neza', location:'PLENO · NEGOCIO · CASA', icon:'📝', image:'foto-27sep.jpg',
+        coords:CITY.aline, zoom:16,
         story:'Estuve desde temprano porque teníamos una misión: terminar tu Pleno jajaja. Pese a las dificultades, usted sabe que yo siempre estaré ahí para apoyarla. Pasamos prácticamente todo el día entre el negocio de tus papás y tu casa. Afortunadamente, al día siguiente yo tenía que ir a Pachuca, así que todavía nos quedaba un día más juntos.',
         signature:'Siempre voy a estar de tu lado, incluso contra el Pleno jajaja.'
       },
@@ -811,13 +814,13 @@
         story:'Como en otras ocasiones, usted se fue a su trabajo y yo a Pachuca. Después nos reencontramos por la tarde, estuvimos un rato juntos y terminamos el día en el cumpleaños de Mía. Gracias otra vez por invitarme y por hacerme sentir parte de esos momentos especiales de tu familia. :)'
       },
       {
-        date:'29 SEP', title:'El amor pudo más', mapLabel:'CDMX · un día extra', location:'TU PLENO · TARDE JUNTOS · UN DÍA MÁS', icon:'❤️', image:'foto-29sep.jpg',
-        coords:[19.4326,-99.1332], zoom:12,
+        date:'29 SEP', title:'El amor pudo más', mapLabel:'Casa de Alincita · Neza', location:'TU PLENO · TARDE JUNTOS · UN DÍA MÁS', icon:'❤️', image:'foto-29sep.jpg',
+        coords:CITY.aline, zoom:16,
         story:'Se suponía que ese día regresaba a Puebla jajajaja, pero el amor lo puede todo y me quedé más tiempo. Como tenías tu Pleno, nos vimos hasta la tarde, pasamos un ratito juntos y después regresamos a tu casa. Oficialmente ya estaba robándole días al calendario sólo para seguir a tu lado.'
       },
       {
-        date:'30 SEP', title:'Un día extra', mapLabel:'CDMX · última parada', location:'OTRO DÍA · DESPEDIDA · PIPIPIPI', icon:'🌙', image:'foto-30sep.jpg',
-        coords:[19.4326,-99.1332], zoom:12,
+        date:'30 SEP', title:'Un día extra', mapLabel:'Casa de Alincita · Neza', location:'OTRO DÍA · DESPEDIDA · PIPIPIPI', icon:'🌙', image:'foto-30sep.jpg',
+        coords:CITY.aline, zoom:16,
         story:'También por el poder del amor me quedé otro día y nos vimos hasta la tarde. Ahora sí tocaba la despedida —pipipipi—, pero me fui muy feliz porque habíamos pasado muchos días seguidos juntos. Terminó septiembre, pero no nuestras ganas de seguir sumando días, kilómetros y recuerdos.',
         signature:'Ruta de septiembre completada. Próximo destino: nosotros. ♡'
       }
