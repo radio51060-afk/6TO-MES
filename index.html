@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fff2f7" />
+  <meta name="description" content="Mapa de nuestros pasos: septiembre, Rosita y Omar, seis meses juntos." />
+  <title>Mapa de Nuestros Pasos · 6 meses</title>
+
+  <!-- Un solo HTML. Mapa vectorial real: MapLibre + OpenFreeMap (sin API key). -->
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@^6.11.2/dist/maplibre-gl.css" />
+
+  <style>
+    :root{
+      --paper:#fffafc;
+      --paper-2:#fff2f7;
+      --paper-3:#ffe8f1;
+      --rose-50:#fff7fa;
+      --rose-100:#ffe9f1;
+      --rose-200:#ffd2e1;
+      --rose-300:#f7b8cf;
+      --rose-400:#ec91b5;
+      --rose-500:#dc6f9d;
+      --rose-600:#c45384;
+      --rose-700:#8f3e61;
+      --berry:#6d344d;
+      --ink:#4d3040;
+      --muted:#8f7080;
+      --white:rgba(255,255,255,.93);
+      --glass:rgba(255,248,251,.82);
+      --line:rgba(164,79,116,.16);
+      --shadow:0 22px 70px rgba(119,54,82,.16);
+      --shadow-soft:0 12px 34px rgba(119,54,82,.11);
+      --hud-h:86px;
+      --safe-top:max(10px,env(safe-area-inset-top));
+      --safe-bottom:max(18px,env(safe-area-inset-bottom));
+      --ease:cubic-bezier(.2,.8,.2,1);
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;background:var(--paper-2)}
+    body{
+      margin:0;
+      min-width:320px;
+      color:var(--ink);
+      background:var(--paper-2);
+      font-family:"Plus Jakarta Sans",Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      overflow-x:hidden;
+    }
+    button{font:inherit}
+
+    /* ===================== MAPA REAL ===================== */
+    #mapStage{
+      position:fixed;
+      inset:0;
+      z-index:0;
+      background:linear-gradient(180deg,#f8dce7,#fceef4);
+    }
+    #map{position:absolute;inset:0}
+
+    /* Tinte rosa muy suave sin perder calles ni etiquetas del mapa. */
+    .maplibregl-canvas{
+      filter:sepia(.16) saturate(.68) hue-rotate(292deg) brightness(1.08) contrast(.84);
+    }
+    .maplibregl-map{
+      background:#f8dce7;
+      font-family:inherit;
+    }
+    .maplibregl-ctrl-bottom-right{z-index:620}
+    .maplibregl-ctrl-attrib{
+      background:rgba(255,250,252,.82)!important;
+      color:#9a7284!important;
+      border-radius:10px 0 0 0!important;
+      font-size:8px!important;
+      backdrop-filter:blur(8px);
+    }
+    .maplibregl-ctrl-attrib a{color:#aa5c7e!important}
+    .maplibregl-ctrl-logo{opacity:.72;filter:saturate(.4) hue-rotate(300deg)}
+
+    #mapStage::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:410;
+      pointer-events:none;
+      background:
+        linear-gradient(180deg,rgba(255,244,248,.46) 0%,transparent 18%,transparent 64%,rgba(255,240,246,.26) 100%),
+        radial-gradient(circle at 50% 44%,transparent 0 42%,rgba(255,239,245,.22) 78%,rgba(255,239,245,.48) 100%);
+    }
+
+    .map-loading{
+      position:absolute;
+      inset:0;
+      z-index:900;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(145deg,#fff1f6,#fbdbe7);
+      transition:opacity .5s ease,visibility .5s ease;
+    }
+    .map-loading.ready{opacity:0;visibility:hidden}
+    .loading-card{
+      width:min(84vw,320px);
+      padding:22px;
+      text-align:center;
+      border:1px solid rgba(255,255,255,.75);
+      border-radius:26px;
+      background:rgba(255,255,255,.72);
+      box-shadow:var(--shadow-soft);
+      backdrop-filter:blur(16px);
+    }
+    .loading-heart{font-size:34px;animation:heartBeat 1.25s ease-in-out infinite}
+    .loading-card strong{display:block;margin-top:8px;font-size:14px;color:var(--berry)}
+    .loading-card small{display:block;margin-top:5px;color:var(--muted);line-height:1.5}
+
+    .map-fallback{
+      position:absolute;
+      left:16px;right:16px;bottom:20px;
+      z-index:950;
+      display:none;
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.92);
+      color:var(--berry);
+      box-shadow:var(--shadow-soft);
+      text-align:center;
+      font-size:12px;
+      line-height:1.5;
+    }
+    .map-fallback.show{display:block}
+
+    /* Leaflet markers */
+    .memory-marker-wrap{background:transparent!important;border:0!important}
+    .memory-marker{
+      width:36px;height:36px;
+      display:grid;place-items:center;
+      position:relative;
+      border:3px solid rgba(255,255,255,.98);
+      border-radius:50% 50% 50% 12px;
+      transform:rotate(-45deg);
+      background:linear-gradient(135deg,var(--rose-300),var(--rose-500));
+      color:white;
+      box-shadow:0 9px 22px rgba(141,60,95,.25);
+      transition:transform .35s var(--ease),filter .35s ease,box-shadow .35s ease;
+    }
+    .memory-marker span{
+      transform:rotate(45deg);
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+    .memory-marker.active{
+      transform:rotate(-45deg) scale(1.22);
+      background:linear-gradient(135deg,#f08eb5,#c64e83);
+      box-shadow:0 0 0 8px rgba(234,132,174,.20),0 12px 30px rgba(131,49,85,.34);
+      animation:markerPulse 1.8s ease-in-out infinite;
+    }
+    .memory-marker.past{filter:saturate(.72);opacity:.8}
+
+    .maplibregl-popup-content{
+      padding:8px 10px!important;
+      border:1px solid rgba(208,104,148,.18);
+      border-radius:12px!important;
+      background:rgba(255,250,252,.96)!important;
+      color:var(--berry)!important;
+      box-shadow:0 8px 22px rgba(119,54,82,.12)!important;
+      font-size:10px;
+      font-weight:800;
+      backdrop-filter:blur(10px);
+    }
+    .maplibregl-popup-tip{border-top-color:rgba(255,250,252,.96)!important}
+    .maplibregl-popup-close-button{display:none}
+
+    .map-tools{
+      position:fixed;
+      right:12px;
+      top:calc(var(--safe-top) + var(--hud-h) + 10px);
+      z-index:700;
+      display:grid;
+      gap:7px;
+    }
+    .map-tool{
+      width:40px;height:40px;
+      border:1px solid rgba(191,91,133,.18);
+      border-radius:14px;
+      background:rgba(255,250,252,.90);
+      color:var(--rose-700);
+      box-shadow:0 7px 20px rgba(119,54,82,.12);
+      backdrop-filter:blur(16px);
+      cursor:pointer;
+      display:grid;place-items:center;
+      font-size:18px;
+    }
+    .map-tool:active{transform:scale(.94)}
+
+    /* ===================== HUD ===================== */
+    .hud{
+      position:fixed;
+      z-index:1000;
+      left:10px;right:10px;top:var(--safe-top);
+      min-height:var(--hud-h);
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      padding:11px 12px 10px;
+      border:1px solid rgba(255,255,255,.78);
+      border-radius:22px;
+      background:linear-gradient(180deg,rgba(255,251,253,.94),rgba(255,243,248,.84));
+      box-shadow:0 14px 38px rgba(119,54,82,.12);
+      backdrop-filter:blur(22px) saturate(120%);
+      -webkit-backdrop-filter:blur(22px) saturate(120%);
+    }
+    .hud-main{min-width:0}
+    .hud-kicker{
+      display:flex;align-items:center;gap:7px;
+      color:var(--rose-600);
+      font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      letter-spacing:.14em;text-transform:uppercase;
+    }
+    .gps-dot{
+      width:7px;height:7px;border-radius:50%;
+      background:var(--rose-500);
+      box-shadow:0 0 0 0 rgba(220,111,157,.35);
+      animation:gpsPing 1.8s infinite;
+    }
+    .hud-title{
+      margin-top:4px;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+      font-size:clamp(14px,4vw,18px);
+      font-weight:900;color:var(--berry);
+      letter-spacing:-.025em;
+    }
+    .hud-meta{
+      margin-top:4px;
+      display:flex;flex-wrap:wrap;gap:5px 12px;
+      color:#987083;
+      font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      letter-spacing:.035em;
+    }
+    .hud-progress-track{
+      margin-top:7px;height:3px;overflow:hidden;border-radius:999px;background:rgba(174,91,126,.10)
+    }
+    .hud-progress{
+      height:100%;width:0;border-radius:inherit;
+      background:linear-gradient(90deg,var(--rose-300),var(--rose-500),var(--rose-600));
+      transition:width .55s var(--ease);
+      box-shadow:0 0 14px rgba(220,111,157,.26);
+    }
+    .sound-btn{
+      width:42px;height:42px;
+      align-self:center;
+      border:1px solid rgba(197,92,137,.14);
+      border-radius:14px;
+      background:rgba(255,255,255,.72);
+      color:var(--rose-700);
+      cursor:pointer;
+    }
+    .sound-btn[aria-pressed="true"]{background:var(--rose-100);box-shadow:inset 0 0 0 1px rgba(197,92,137,.08)}
+
+    /* ===================== CONTENIDO SOBRE EL MAPA ===================== */
+    .app{position:relative;z-index:1}
+    main{position:relative;z-index:2;pointer-events:none}
+    main button,.memory-card,.final-panel{pointer-events:auto}
+
+    .hero{
+      min-height:100svh;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding:calc(var(--safe-top) + var(--hud-h) + 34px) 14px calc(28px + var(--safe-bottom));
+    }
+    .hero-card{
+      width:min(100%,640px);
+      border:1px solid rgba(255,255,255,.82);
+      border-radius:32px;
+      padding:23px 20px 19px;
+      background:linear-gradient(145deg,rgba(255,252,253,.95),rgba(255,238,245,.88));
+      box-shadow:0 26px 80px rgba(108,46,72,.18);
+      backdrop-filter:blur(25px) saturate(120%);
+      -webkit-backdrop-filter:blur(25px) saturate(120%);
+      text-align:left;
+    }
+    .route-pill{
+      display:inline-flex;align-items:center;gap:7px;
+      padding:7px 10px;border-radius:999px;
+      border:1px solid rgba(208,97,144,.16);
+      color:var(--rose-600);background:rgba(255,255,255,.7);
+      font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+      letter-spacing:.12em;text-transform:uppercase;
+    }
+    .hero h1{
+      margin:15px 0 10px;
+      color:var(--berry);
+      font-size:clamp(43px,13vw,74px);
+      line-height:.92;
+      letter-spacing:-.06em;
+      font-weight:950;
+      text-wrap:balance;
+    }
+    .hero h1 em{font-style:normal;color:var(--rose-500)}
+    .hero p{
+      margin:0;color:#7f5c6d;
+      font-size:14px;line-height:1.65;
+    }
+    .hero-route{
+      margin-top:14px;
+      display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+      color:var(--rose-700);
+      font-size:11px;font-weight:800;
+    }
+    .hero-route i{width:18px;height:1px;background:var(--rose-300);display:block}
+    .start-btn{
+      width:100%;
+      margin-top:17px;
+      border:0;border-radius:17px;
+      padding:14px 16px;
+      background:linear-gradient(135deg,#f4b7cf,#e981ac 58%,#d76797);
+      color:white;
+      font-weight:900;
+      box-shadow:0 12px 30px rgba(202,85,136,.23);
+      cursor:pointer;
+    }
+    .start-btn:active{transform:translateY(1px) scale(.995)}
+    .hint{
+      margin-top:11px;text-align:center;color:#a27c8e;
+      font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    }
+
+    .journey-intro{
+      min-height:74svh;
+      display:flex;align-items:flex-end;justify-content:center;
+      padding:120px 14px 28px;
+    }
+    .intro-card{
+      width:min(100%,610px);
+      padding:18px;
+      border-radius:25px;
+      border:1px solid rgba(255,255,255,.76);
+      background:rgba(255,249,252,.87);
+      box-shadow:var(--shadow-soft);
+      backdrop-filter:blur(18px);
+    }
+    .eyebrow{
+      color:var(--rose-600);
+      font:900 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+      letter-spacing:.14em;text-transform:uppercase;
+    }
+    .intro-card h2{margin:7px 0 8px;color:var(--berry);font-size:27px;line-height:1;letter-spacing:-.04em}
+    .intro-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+
+    #stops{position:relative}
+    .memory-stop{
+      min-height:100svh;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding:calc(var(--safe-top) + var(--hud-h) + 28px) 12px calc(24px + var(--safe-bottom));
+      scroll-margin-top:10px;
+    }
+    .memory-card{
+      width:min(100%,630px);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.87);
+      border-radius:28px;
+      background:linear-gradient(145deg,rgba(255,253,254,.95),rgba(255,244,249,.91));
+      box-shadow:0 26px 74px rgba(107,48,73,.18);
+      backdrop-filter:blur(23px) saturate(120%);
+      -webkit-backdrop-filter:blur(23px) saturate(120%);
+      transform:translateY(22px) scale(.985);
+      opacity:.72;
+      transition:transform .55s var(--ease),opacity .55s ease,box-shadow .55s ease;
+    }
+    .memory-stop.is-active .memory-card{
+      transform:translateY(0) scale(1);
+      opacity:1;
+      box-shadow:0 30px 88px rgba(107,48,73,.23);
+    }
+
+    .node-media{
+      position:relative;
+      width:100%;
+      height:clamp(230px,50vh,420px);
+      overflow:hidden;
+      isolation:isolate;
+      background:linear-gradient(135deg,var(--rose-100),var(--rose-200));
+    }
+    .node-media::before{
+      content:"";
+      position:absolute;inset:-24px;
+      z-index:-1;
+      background-image:var(--media-bg);
+      background-position:center;
+      background-size:cover;
+      filter:blur(25px) brightness(.78) saturate(.95);
+      transform:scale(1.10);
+      opacity:.72;
+    }
+    .node-media::after{
+      content:"";
+      position:absolute;inset:0;
+      z-index:1;
+      pointer-events:none;
+      background:linear-gradient(180deg,rgba(92,45,66,.03) 45%,rgba(84,38,58,.26) 100%);
+    }
+    .node-media img{
+      position:relative;z-index:0;
+      display:block;width:100%;height:100%;
+      object-fit:contain;
+      object-position:center;
+    }
+    .media-date{
+      position:absolute;z-index:3;
+      top:12px;left:12px;
+      display:inline-flex;align-items:center;gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(255,250,252,.90);
+      color:var(--rose-700);
+      box-shadow:0 5px 16px rgba(77,48,64,.09);
+      backdrop-filter:blur(12px);
+      font:900 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+      letter-spacing:.08em;
+    }
+    .fallback{
+      position:absolute;inset:0;z-index:4;
+      display:none;
+      place-items:center;
+      padding:24px;
+      background:
+        radial-gradient(circle at 18% 18%,rgba(255,255,255,.72),transparent 28%),
+        linear-gradient(135deg,#fff4f8,#f9dbe7);
+      text-align:center;
+    }
+    .node-media.missing .fallback{display:grid}
+    .fallback-inner{max-width:280px;color:var(--berry)}
+    .fallback-icon{font-size:39px;margin-bottom:8px;filter:drop-shadow(0 7px 12px rgba(139,58,94,.10))}
+    .fallback strong{display:block;font-size:17px}
+    .fallback small{display:block;margin-top:6px;color:var(--muted);font-size:11px;line-height:1.55}
+
+    .memory-body{padding:16px 17px 18px}
+    .memory-topline{
+      display:flex;justify-content:space-between;gap:8px;align-items:center;
+      margin-bottom:7px;
+      color:var(--rose-600);
+      font:900 8.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+      letter-spacing:.08em;text-transform:uppercase;
+    }
+    .memory-topline .stop-count{color:#b493a2;white-space:nowrap}
+    .memory-body h3{
+      margin:0 0 8px;
+      color:var(--berry);
+      font-size:clamp(23px,7vw,31px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+    }
+    .memory-body p{
+      margin:0;
+      color:#725363;
+      font-size:13px;
+      line-height:1.72;
+    }
+    .memory-signature{
+      margin-top:12px;
+      padding-top:11px;
+      border-top:1px solid rgba(181,93,131,.12);
+      color:var(--rose-600);
+      font-size:11px;
+      font-weight:800;
+      font-style:italic;
+    }
+    .map-label{
+      display:inline-flex;align-items:center;gap:5px;
+      margin-top:13px;
+      padding:7px 9px;
+      border-radius:10px;
+      background:var(--rose-50);
+      color:#9f607b;
+      font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+
+    /* ===================== FINAL ===================== */
+    .final-destination{
+      position:relative;
+      z-index:20;
+      min-height:100svh;
+      padding:calc(var(--safe-top) + var(--hud-h) + 35px) 14px calc(42px + var(--safe-bottom));
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at 50% 12%,rgba(255,255,255,.92),transparent 26%),
+        radial-gradient(circle at 10% 35%,rgba(244,183,207,.30),transparent 34%),
+        radial-gradient(circle at 90% 72%,rgba(238,143,180,.20),transparent 30%),
+        linear-gradient(180deg,rgba(255,244,249,.86),rgba(255,234,243,.97));
+      pointer-events:auto;
+    }
+    .final-panel{
+      width:min(100%,670px);
+      padding:24px 19px 21px;
+      border-radius:32px;
+      border:1px solid rgba(255,255,255,.88);
+      background:rgba(255,252,253,.88);
+      box-shadow:0 30px 90px rgba(114,48,77,.16);
+      backdrop-filter:blur(25px);
+      text-align:center;
+    }
+    .destination-lock{
+      display:inline-flex;align-items:center;gap:7px;
+      padding:7px 10px;border-radius:999px;
+      background:var(--rose-100);color:var(--rose-700);
+      font:900 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+      letter-spacing:.1em;text-transform:uppercase;
+    }
+    .final-panel h2{
+      margin:12px 0 7px;
+      color:var(--berry);
+      font-size:clamp(40px,12vw,72px);
+      line-height:.92;letter-spacing:-.06em;
+    }
+    .final-panel h2 span{color:var(--rose-500)}
+    .final-lead{margin:0 auto;max-width:480px;color:#846274;font-size:13px;line-height:1.65}
+
+    .cake-scene{height:218px;display:grid;place-items:end center;margin-top:8px;overflow:visible}
+    .cake{
+      position:relative;
+      width:228px;height:112px;
+      border-radius:22px 22px 28px 28px;
+      background:linear-gradient(180deg,#f7c7d8,#ecaac2 58%,#e295b2);
+      box-shadow:0 22px 40px rgba(151,73,107,.18),inset 0 -8px 0 rgba(168,76,115,.08);
+    }
+    .cake::after{
+      content:"6 meses";
+      position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
+      color:#8d4564;font-weight:950;font-size:20px;letter-spacing:-.04em;
+      white-space:nowrap;
+    }
+    .icing{
+      position:absolute;left:-3px;right:-3px;top:-14px;height:38px;
+      border-radius:50% 50% 18px 18px;
+      background:#fff8fb;
+      box-shadow:0 5px 0 rgba(255,255,255,.55),inset 0 -5px 0 #f8dce7;
+    }
+    .drip{position:absolute;top:8px;width:21px;background:#fff8fb;border-radius:0 0 14px 14px}
+    .d1{left:24px;height:26px}.d2{left:73px;height:17px}.d3{right:66px;height:31px}.d4{right:23px;height:20px}
+    .candles{
+      position:absolute;z-index:5;left:20px;right:20px;top:-63px;
+      display:flex;justify-content:space-between;align-items:flex-end;
+    }
+    .candle{
+      position:relative;width:10px;height:48px;border-radius:4px;
+      background:repeating-linear-gradient(135deg,#f4a5c2 0 6px,#fff0f6 6px 11px);
+      box-shadow:0 3px 7px rgba(119,54,82,.09);
+    }
+    .wick{position:absolute;left:4px;top:-6px;width:2px;height:7px;background:#6c4b59;border-radius:2px}
+    .flame{
+      position:absolute;left:50%;top:-24px;
+      width:13px;height:20px;
+      transform:translateX(-50%) rotate(4deg);
+      transform-origin:50% 100%;
+      border-radius:58% 42% 65% 35% / 62% 50% 50% 38%;
+      background:radial-gradient(circle at 50% 72%,#fff7c7 0 21%,#ffd278 28% 56%,#f58f9f 66% 100%);
+      filter:drop-shadow(0 0 8px rgba(244,142,163,.48));
+      animation:flicker 1.05s ease-in-out infinite alternate;
+    }
+    .candle:nth-child(2) .flame{animation-duration:.78s;animation-delay:-.31s}
+    .candle:nth-child(3) .flame{animation-duration:1.27s;animation-delay:-.51s}
+    .candle:nth-child(4) .flame{animation-duration:.92s;animation-delay:-.22s}
+    .candle:nth-child(5) .flame{animation-duration:1.18s;animation-delay:-.67s}
+    .candle:nth-child(6) .flame{animation-duration:.84s;animation-delay:-.41s}
+
+    .love-letter{
+      margin-top:2px;
+      padding:17px 16px;
+      border:1px solid rgba(207,111,153,.12);
+      border-radius:22px;
+      background:linear-gradient(145deg,#fff8fb,#fff0f5);
+      text-align:left;
+      color:#725363;
+      font-size:13px;
+      line-height:1.72;
+    }
+    .love-letter p{margin:0 0 10px}.love-letter p:last-child{margin-bottom:0}
+    .love-letter strong{color:var(--rose-700)}
+    .love-letter .sign{font-size:18px;font-weight:950;color:var(--rose-600);text-align:center;margin:14px 0}
+    .footer{margin-top:14px;color:#aa7a8f;font:900 8.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;text-transform:uppercase}
+
+    .particles{position:fixed;inset:0;z-index:1200;pointer-events:none;overflow:hidden}
+    .particle{
+      position:absolute;left:50%;top:50%;
+      font-size:14px;opacity:0;
+      animation:floatHeart 2.4s var(--ease) forwards;
+    }
+
+    @keyframes markerPulse{50%{box-shadow:0 0 0 13px rgba(234,132,174,.10),0 13px 32px rgba(131,49,85,.32)}}
+    @keyframes gpsPing{70%{box-shadow:0 0 0 8px rgba(220,111,157,0)}}
+    @keyframes heartBeat{50%{transform:scale(1.13)}}
+    @keyframes flicker{0%{transform:translateX(-50%) rotate(-5deg) scale(.96,1.04)}50%{transform:translateX(-50%) rotate(5deg) scale(1.08,.95)}100%{transform:translateX(-50%) rotate(1deg) scale(.98,1.08)}}
+    @keyframes tripDash{to{stroke-dashoffset:-34}}
+    @keyframes floatHeart{
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+      12%{opacity:1}
+      100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(1.4)}
+    }
+
+    /* Las rutas se dibujan como capas vectoriales MapLibre. */
+
+    @media (min-width:760px){
+      .hud{left:18px;right:auto;width:470px}
+      .map-tools{right:18px}
+      .hero,.memory-stop,.journey-intro{justify-content:flex-end;padding-right:4vw}
+      .hero-card,.memory-card,.intro-card{margin-right:0}
+      .memory-card{width:min(46vw,630px)}
+      .hero-card{width:min(46vw,640px)}
+      .intro-card{width:min(46vw,610px)}
+      #mapStage::after{background:linear-gradient(90deg,transparent 0 42%,rgba(255,239,245,.08) 58%,rgba(255,239,245,.42) 100%)}
+    }
+
+    @media (max-width:420px){
+      .memory-body{padding:14px 15px 16px}
+      .memory-body p{font-size:12.5px}
+      .node-media{height:min(47vh,350px)}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      html{scroll-behavior:auto}
+      *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+    }
+  </style>
+</head>
+<body>
+  <div id="mapStage" aria-hidden="true">
+    <div id="map"></div>
+    <div class="map-loading" id="mapLoading">
+      <div class="loading-card">
+        <div class="loading-heart">💗</div>
+        <strong>Trazando nuestros pasos…</strong>
+        <small>CDMX · Pachuca · Puebla</small>
+      </div>
+    </div>
+    <div class="map-fallback" id="mapFallback">No pude cargar el mapa en línea. Conecta el dispositivo a internet y vuelve a abrir esta página para ver la ruta real.</div>
+  </div>
+
+  <header class="hud" aria-label="GPS de nuestros recuerdos">
+    <div class="hud-main">
+      <div class="hud-kicker"><span class="gps-dot"></span> nuestra ruta · señal activa</div>
+      <div class="hud-title" id="hudTitle">Mapa de nuestros pasos</div>
+      <div class="hud-meta"><span id="hudDate">SEPTIEMBRE · 16 PARADAS</span><span id="hudCoords">CDMX · PACHUCA · PUEBLA</span></div>
+      <div class="hud-progress-track"><div class="hud-progress" id="hudProgress"></div></div>
+    </div>
+    <button class="sound-btn" id="soundBtn" type="button" aria-label="Activar sonido GPS" aria-pressed="false">🔇</button>
+  </header>
+
+  <div class="map-tools" aria-label="Controles del mapa">
+    <button class="map-tool" id="zoomIn" type="button" aria-label="Acercar mapa">＋</button>
+    <button class="map-tool" id="zoomOut" type="button" aria-label="Alejar mapa">−</button>
+    <button class="map-tool" id="showRoute" type="button" aria-label="Mostrar ruta completa" title="Ver ruta completa">♡</button>
+  </div>
+
+  <div class="app">
+    <main>
+      <section class="hero" id="inicio">
+        <div class="hero-card">
+          <div class="route-pill">♡ Route 06 · Septiembre</div>
+          <h1>Mapa de <em>Nuestros Pasos</em></h1>
+          <p>Un mes, muchas rutas y una certeza: no importa cuántos kilómetros haya de por medio, siempre vale la pena llegar hasta ti.</p>
+          <div class="hero-route"><span>Puebla</span><i></i><span>CDMX</span><i></i><span>Pachuca</span><i></i><span>nosotros</span></div>
+          <button class="start-btn" id="startJourney" type="button">Empezar nuestro recorrido 💗</button>
+          <div class="hint">desliza para viajar por septiembre</div>
+        </div>
+      </section>
+
+      <section class="journey-intro" id="ruta">
+        <div class="intro-card">
+          <div class="eyebrow">BITÁCORA DE VIAJE · 16 PARADAS</div>
+          <h2>Septiembre, sobre el mapa.</h2>
+          <p>Las ubicaciones privadas están representadas sólo a nivel ciudad; los lugares públicos como Six Flags, el Zócalo y el Estadio GNP sí aparecen sobre su zona real.</p>
+        </div>
+      </section>
+
+      <section id="stops" aria-label="Recuerdos de septiembre"></section>
+
+      <section class="final-destination" id="destino">
+        <div class="final-panel">
+          <div class="destination-lock"><span class="gps-dot"></span> destino alcanzado</div>
+          <div class="eyebrow" style="margin-top:11px">ROSITA + OMAR · ROUTE COMPLETE</div>
+          <h2>6 meses de <span>nosotros</span></h2>
+          <p class="final-lead">El recorrido de septiembre termina aquí, pero nuestro mapa apenas empieza a llenarse.</p>
+
+          <div class="cake-scene" aria-label="Pastel de seis meses con seis velas encendidas">
+            <div class="cake">
+              <div class="icing"></div>
+              <i class="drip d1"></i><i class="drip d2"></i><i class="drip d3"></i><i class="drip d4"></i>
+              <div class="candles" aria-hidden="true">
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+                <div class="candle"><span class="wick"></span><span class="flame"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="love-letter">
+            <p>Y concluimos el mes, <strong>Rosita</strong>. Han sido meses muy especiales para mí. Te has convertido en alguien muy importante, alguien con quien puedo sonreír, reírme, confiar e incluso llorar. Eres mi compañera de vida y estoy seguro de que nos esperan muchísimos momentos más juntos.</p>
+            <p>Estoy muy emocionado por los meses que vienen. Sé que, aun con la distancia y las dificultades, juntos logramos seguir avanzando y creciendo como personas. <strong>Te amo con todo mi corazón y siempre te amaré.</strong></p>
+            <p class="sign">¡Feliz mesniversario, Rosita! ❤️</p>
+            <p>Estoy seguro de que nos deparan todavía muchas más aventuras especiales.</p>
+          </div>
+          <div class="footer">END OF ROUTE · NEXT DESTINATION: TOGETHER ♡</div>
+        </div>
+      </section>
+    </main>
+
+    <div class="particles" id="particles" aria-hidden="true"></div>
+  </div>
+
+  <script type="module">
+  import * as maplibregl from 'https://unpkg.com/maplibre-gl@^6.11.2/dist/maplibre-gl.mjs';
+  (() => {
+    'use strict';
+
+    const CITY = {
+      cdmx: [19.4326, -99.1332],
+      coyoacan: [19.3493, -99.1621],
+      sixFlags: [19.2957, -99.2097],
+      gnp: [19.4052, -99.0952],
+      pachuca: [20.1011, -98.7591],
+      puebla: [19.0414, -98.2063]
+    };
+
+    const stops = [
+      {
+        date:'04 SEP', title:'Terror juntos', mapLabel:'Six Flags · CDMX', location:'SIX FLAGS · FESTIVAL DEL TERROR', icon:'🎢', image:'foto-4sep.jpg',
+        coords:CITY.sixFlags, zoom:15,
+        story:'Ese día tuve que hacer un viaje de trabajo muy cerca de la CDMX y eso me permitió quedarme contigo. Pasé por ti a tu trabajo y decidimos ir a Six Flags. Ya tenía tiempo que no íbamos y, como estaba el especial de terror, fue un plus. Nos quedamos hasta las 12 de la noche, subimos a los juegos que nos gustan y, aun con el nerviosismo que siempre me da, estando a tu lado se me quita.',
+        signature:'Contigo, hasta el miedo se siente bonito.'
+      },
+      {
+        date:'05 SEP', title:'Un sábado tranquilo', mapLabel:'CDMX · nuestro sábado', location:'CAFÉ · CHAPATA · CHOCOLATE · JENGA', icon:'☕', image:'foto-5sep.jpg',
+        coords:CITY.coyoacan, zoom:13,
+        story:'Como era sábado tuvimos más tiempo para continuar juntos. Fue un día tranquilo: estuvimos en tu casa y después fuimos a probar una cafetería. Comimos una rica chapata, nuestro chocolate y jugamos Jenga. De esos planes sencillos que terminan siendo de mis favoritos porque, al final, lo importante siempre es estar contigo.'
+      },
+      {
+        date:'06 SEP', title:'Una sorpresa inolvidable', mapLabel:'CDMX · sorpresa', location:'ORQUESTA · TACOS · FELICIDAD', icon:'🎻', image:'foto-6sep.jpg',
+        coords:CITY.cdmx, zoom:13,
+        story:'Me comentaste que iríamos a comer, pero era falsoooo jajaja. Me preparaste una sorpresa para ver juntos una orquesta y me hiciste muy feliz. No me lo creía: por fin pudimos ver una y cumplí uno de mis sueños, escuchar algo así en vivo. Yo sé que no es precisamente tu plan favorito y, aun así, me acompañaste. Muchas gracias, Alincita. Después fuimos por unos ricos tacos de Remolkitos y así concluyó nuestra semana.',
+        signature:'Gracias por hacer tuyos también mis sueños.'
+      },
+      {
+        date:'13 SEP', title:'Caímos en TikTok', mapLabel:'CDMX · antojo + cine', location:'ANTOJO VIRAL · CINE', icon:'🍿', image:'foto-13sep.jpg',
+        coords:[19.4148,-99.1594], zoom:13,
+        story:'Pasaron los días y nos volvimos a ver hasta el 13 de septiembre. Fuimos a probar algo que llevábamos tiempo queriendo conocer; sin embargo, caímos en las trampas de TikTok y no fue exactamente lo que esperábamos jajaja. Pero bueno, al menos disfrutamos esos chicharrones preparados y después nos fuimos al cine.'
+      },
+      {
+        date:'14 SEP', title:'Aunque el plan cambie', mapLabel:'Zócalo · CDMX', location:'CASA · ZÓCALO · LUCES', icon:'✨', image:'foto-14sep.jpg',
+        coords:[19.4326,-99.1332], zoom:15,
+        story:'Pasamos la mayor parte del día en tu casa y tuvimos la bendición de poder pasar el lunes tranquilos. Más tarde, junto con tu mamá, fuimos al Zócalo para ver las luces. Para nuestra mala suerte cerraron y no pudimos verlas como queríamos, pero la pasamos bien: comimos algo rico y alcanzamos a verlas de lejitos. Sea cual sea el plan, salga bien o mal, yo siempre estaré ahí contigo.',
+        signature:'El plan puede cambiar; mis ganas de estar contigo, no.'
+      },
+      {
+        date:'15 SEP', title:'Flores antes de volver', mapLabel:'CDMX → Puebla', location:'FLORES · DESPEDIDA · PUEBLA', icon:'💐', image:'foto-15sep.jpg',
+        coords:CITY.cdmx, zoom:8,
+        trip:[CITY.cdmx, CITY.puebla],
+        story:'Era el día en que nació México. Me hubiera encantado pasar contigo esa noche, pero ese día sólo pude estar un rato. Te llevé unas flores y después regresé a Puebla. Fue una visita corta, pero verte aunque fuera por un momento hizo que valiera completamente la pena.'
+      },
+      {
+        date:'18 SEP', title:'Nuestra ruta de siempre', mapLabel:'CDMX · viernes de cine', location:'TRABAJO · REENCUENTRO · CINE', icon:'🎬', image:'foto-18sep.jpg',
+        coords:[19.4050,-99.1670], zoom:13,
+        trip:[CITY.puebla, [19.4050,-99.1670]],
+        story:'Era viernes y, después de salir del trabajo, tomé la ruta de siempre. Esa vez ya estabas en tu casa, así que pasé por ti y fuimos al cine. Así pasamos nuestro viernes juntos: sencillo, tranquilo y feliz.'
+      },
+      {
+        date:'19 SEP', title:'Nuestro segundo gran concierto', mapLabel:'Estadio GNP · CDMX', location:'FAMILIA · CONCIERTO · ESTADIO GNP', icon:'🎤', image:'foto-19sep.jpg',
+        coords:CITY.gnp, zoom:15,
+        story:'Pasamos un rato en tu casa y en el negocio de tus papás. Más tarde fuimos a la fiesta de uno de tus primos; creo que fue una de las primeras ocasiones en las que conviví más con tus tías. Después nos fuimos al concierto. Fue mi primera vez en el Estadio GNP y nuestro segundo concierto masivo juntos. Aunque tuvimos un momento raro al inicio, terminamos pasándola muy bien. Regresar fue un caos, pero lo logramos; ya estábamos moridos jajaja, y así acabó nuestro día.'
+      },
+      {
+        date:'20 SEP', title:'Domingo de novios', mapLabel:'CDMX · domingo juntos', location:'CASA · PLENO · NOSOTROS', icon:'🏠', image:'foto-20sep.jpg',
+        coords:[19.3900,-99.1500], zoom:12,
+        story:'Fue nuestro domingo de novios. Estuvimos principalmente en tu casa mientras terminabas tu Pleno. Así concluyó nuestra semana juntos, aunque todavía me quedaría unos días porque tendría que ir a Pachuca. A veces nuestro plan es simplemente estar ahí, acompañándonos mientras cada uno hace lo que necesita hacer, y también amo esos días.'
+      },
+      {
+        date:'21 SEP', title:'Flores amarillas', mapLabel:'Pachuca → CDMX', location:'PACHUCA · FLORES AMARILLAS · MADOX', icon:'🌼', image:'foto-21sep.jpg',
+        coords:[19.4245,-99.1648], zoom:8,
+        trip:[CITY.pachuca,[19.4245,-99.1648]],
+        story:'Tú tuviste que ir al trabajo y yo tuve que ir a Pachuca. En cuanto terminé regresé a CDMX porque tenía una misión: era el día de las flores amarillas. Pasé por tus flores y fui a verte. Nos encontramos hasta la tarde —te veías tan hermosa con ese vestido— y después fuimos por un regalo para tu sobrino. Terminamos el día en el cumpleaños de Madox. Aun con sueño, yo estaba feliz porque tu familia ha sido muy amable conmigo y me ha permitido acompañarlos en fechas especiales.',
+        signature:'Ese día, mi ruta tenía una misión amarilla. 🌼'
+      },
+      {
+        date:'22 SEP', title:'Una tarde más contigo', mapLabel:'Pachuca → CDMX', location:'PACHUCA · TU PLENO · REENCUENTRO', icon:'🚗', image:'foto-22sep.jpg',
+        coords:[19.4326,-99.1332], zoom:8,
+        trip:[CITY.pachuca,CITY.cdmx],
+        story:'El martes fue algo parecido: tú en tu trabajo y yo otra vez en Pachuca. Como tenías tu Pleno y salías más tarde, al regresar me fui a mi cuarto a dormir un rato y bañarme. Después pasé por ti en la tarde, estuvimos un rato juntos y tocó despedirnos hasta la siguiente semana.'
+      },
+      {
+        date:'26 SEP', title:'De acá para allá', mapLabel:'CDMX · sábado de novios', location:'CELULAR · PLAZA · CAFÉ · CINE', icon:'🛍️', image:'foto-26sep.jpg',
+        coords:[19.4335,-99.1916], zoom:12,
+        story:'Pasaron los días hasta llegar al 26. Me acompañaste a mis rumbos para comprar mi celular y tuvimos un sábado de novios de acá para allá. Estuvimos en la plaza, buscamos ropa para Mía, me ayudaste a elegir ropa y después fuimos por un pancito rico con nuestros cafecitos. Seguimos pasando tiempo juntos y concluimos en el cine.'
+      },
+      {
+        date:'27 SEP', title:'Misión: terminar el Pleno', mapLabel:'CDMX · día de apoyo', location:'PLENO · NEGOCIO · CASA', icon:'📝', image:'foto-27sep.jpg',
+        coords:[19.3900,-99.1500], zoom:12,
+        story:'Estuve desde temprano porque teníamos una misión: terminar tu Pleno jajaja. Pese a las dificultades, usted sabe que yo siempre estaré ahí para apoyarla. Pasamos prácticamente todo el día entre el negocio de tus papás y tu casa. Afortunadamente, al día siguiente yo tenía que ir a Pachuca, así que todavía nos quedaba un día más juntos.',
+        signature:'Siempre voy a estar de tu lado, incluso contra el Pleno jajaja.'
+      },
+      {
+        date:'28 SEP', title:'Otro cumpleaños juntos', mapLabel:'Pachuca → CDMX', location:'REENCUENTRO · CUMPLEAÑOS DE MÍA', icon:'🎂', image:'foto-28sep.jpg',
+        coords:[19.4100,-99.1550], zoom:8,
+        trip:[CITY.pachuca,[19.4100,-99.1550]],
+        story:'Como en otras ocasiones, usted se fue a su trabajo y yo a Pachuca. Después nos reencontramos por la tarde, estuvimos un rato juntos y terminamos el día en el cumpleaños de Mía. Gracias otra vez por invitarme y por hacerme sentir parte de esos momentos especiales de tu familia. :)'
+      },
+      {
+        date:'29 SEP', title:'El amor pudo más', mapLabel:'CDMX · un día extra', location:'TU PLENO · TARDE JUNTOS · UN DÍA MÁS', icon:'❤️', image:'foto-29sep.jpg',
+        coords:[19.4326,-99.1332], zoom:12,
+        story:'Se suponía que ese día regresaba a Puebla jajajaja, pero el amor lo puede todo y me quedé más tiempo. Como tenías tu Pleno, nos vimos hasta la tarde, pasamos un ratito juntos y después regresamos a tu casa. Oficialmente ya estaba robándole días al calendario sólo para seguir a tu lado.'
+      },
+      {
+        date:'30 SEP', title:'Un día extra', mapLabel:'CDMX · última parada', location:'OTRO DÍA · DESPEDIDA · PIPIPIPI', icon:'🌙', image:'foto-30sep.jpg',
+        coords:[19.4326,-99.1332], zoom:12,
+        story:'También por el poder del amor me quedé otro día y nos vimos hasta la tarde. Ahora sí tocaba la despedida —pipipipi—, pero me fui muy feliz porque habíamos pasado muchos días seguidos juntos. Terminó septiembre, pero no nuestras ganas de seguir sumando días, kilómetros y recuerdos.',
+        signature:'Ruta de septiembre completada. Próximo destino: nosotros. ♡'
+      }
+    ];
+
+    const stopsContainer = document.getElementById('stops');
+    const hudTitle = document.getElementById('hudTitle');
+    const hudDate = document.getElementById('hudDate');
+    const hudCoords = document.getElementById('hudCoords');
+    const hudProgress = document.getElementById('hudProgress');
+    const mapLoading = document.getElementById('mapLoading');
+    const mapFallback = document.getElementById('mapFallback');
+    const startJourney = document.getElementById('startJourney');
+    const soundBtn = document.getElementById('soundBtn');
+    const particles = document.getElementById('particles');
+    const finalSection = document.getElementById('destino');
+
+    stopsContainer.innerHTML = stops.map((stop,index) => `
+      <article class="memory-stop" id="stop-${index+1}" data-index="${index}">
+        <div class="memory-card">
+          <div class="node-media" style="--media-bg:url('${stop.image}')">
+            <img src="${stop.image}" alt="Recuerdo del ${stop.date.toLowerCase()}: ${stop.title}" loading="lazy" />
+            <div class="media-date">${stop.date} · ${stop.icon}</div>
+            <div class="fallback">
+              <div class="fallback-inner">
+                <div class="fallback-icon">${stop.icon}</div>
+                <strong>Este recuerdo espera su foto</strong>
+                <small>Coloca <b>${stop.image}</b> en la misma carpeta del HTML. La imagen aparecerá completa, sin recortes.</small>
+              </div>
+            </div>
+          </div>
+          <div class="memory-body">
+            <div class="memory-topline"><span>${stop.location}</span><span class="stop-count">PARADA ${String(index+1).padStart(2,'0')}/16</span></div>
+            <h3>${stop.title}</h3>
+            <p>${stop.story}</p>
+            ${stop.signature ? `<div class="memory-signature">♡ ${stop.signature}</div>` : ''}
+            <div class="map-label">⌖ ${stop.mapLabel}</div>
+          </div>
+        </div>
+      </article>
+    `).join('');
+
+    // Fallback de fotos: jamás deja un icono de imagen rota.
+    document.querySelectorAll('.node-media img').forEach(img => {
+      const media = img.closest('.node-media');
+      const missing = () => { img.style.display='none'; media.classList.add('missing'); };
+      img.addEventListener('error', missing, { once:true });
+      if (img.complete && img.naturalWidth === 0) missing();
+    });
+
+    let map = null;
+    let markers = [];
+    let activeIndex = -1;
+    let audioEnabled = false;
+    let audioCtx = null;
+    let finalCelebrated = false;
+    let mapReady = false;
+    let pendingFocusIndex = 0;
+
+    const overviewPoints = [
+      CITY.puebla,
+      ...stops.map(s => s.coords),
+      CITY.pachuca
+    ];
+
+    const toLngLat = coords => [coords[1], coords[0]];
+    const lineFeature = points => ({
+      type:'Feature',
+      properties:{},
+      geometry:{
+        type:'LineString',
+        coordinates:(points.length > 1 ? points : [points[0], points[0]]).map(toLngLat)
+      }
+    });
+
+    function createMarkerElement(i){
+      const wrap=document.createElement('div');
+      wrap.className='memory-marker-wrap';
+      wrap.innerHTML=`<div class="memory-marker" data-marker="${i}"><span>${String(i+1).padStart(2,'0')}</span></div>`;
+      wrap.setAttribute('aria-label',`${stops[i].date}: ${stops[i].title}`);
+      wrap.setAttribute('role','button');
+      wrap.tabIndex=0;
+      const go=()=>document.getElementById(`stop-${i+1}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+      wrap.addEventListener('click',go);
+      wrap.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+      return wrap;
+    }
+
+    function boundsFrom(points){
+      const first=toLngLat(points[0]);
+      const bounds=new maplibregl.LngLatBounds(first,first);
+      points.slice(1).forEach(p=>bounds.extend(toLngLat(p)));
+      return bounds;
+    }
+
+    function setGeoJSON(sourceId, points){
+      if(!mapReady || !map) return;
+      const src=map.getSource(sourceId);
+      if(src) src.setData(lineFeature(points));
+    }
+
+    function initMap(){
+      try{
+        if (!maplibregl?.Map) throw new Error('MapLibre no disponible');
+
+        map = new maplibregl.Map({
+          container:'map',
+          style:'https://tiles.openfreemap.org/styles/liberty',
+          center:toLngLat(CITY.cdmx),
+          zoom:7.6,
+          attributionControl:true,
+          scrollZoom:false,
+          dragRotate:false,
+          pitchWithRotate:false,
+          touchPitch:false,
+          maxPitch:0
+        });
+
+        // El mapa funciona como escenario de la historia; evitamos que el gesto vertical robe el scroll.
+        map.touchZoomRotate.disableRotation();
+        map.doubleClickZoom.disable();
+
+        const failTimer=setTimeout(()=>{
+          if(!mapReady){
+            mapLoading.classList.add('ready');
+            mapFallback.classList.add('show');
+          }
+        },9000);
+
+        map.on('load',()=>{
+          clearTimeout(failTimer);
+          mapReady=true;
+
+          map.addSource('route-base',{type:'geojson',data:lineFeature(stops.map(s=>s.coords))});
+          map.addLayer({
+            id:'route-base',type:'line',source:'route-base',
+            layout:{'line-cap':'round','line-join':'round'},
+            paint:{'line-color':'#d7a5b9','line-width':4,'line-opacity':.42}
+          });
+
+          map.addSource('route-progress',{type:'geojson',data:lineFeature([stops[0].coords])});
+          map.addLayer({
+            id:'route-progress',type:'line',source:'route-progress',
+            layout:{'line-cap':'round','line-join':'round'},
+            paint:{'line-color':'#d96092','line-width':6,'line-opacity':.92}
+          });
+
+          map.addSource('active-trip',{type:'geojson',data:lineFeature([stops[0].coords])});
+          map.addLayer({
+            id:'active-trip',type:'line',source:'active-trip',
+            layout:{'line-cap':'round','line-join':'round'},
+            paint:{
+              'line-color':'#c94e84','line-width':5,'line-opacity':.85,
+              'line-dasharray':[1.4,1.5]
+            }
+          });
+
+          stops.forEach((stop,i)=>{
+            const el=createMarkerElement(i);
+            const popup=new maplibregl.Popup({offset:[0,-35],closeButton:false,closeOnClick:false})
+              .setText(`${stop.date} · ${stop.title}`);
+            const marker=new maplibregl.Marker({element:el,anchor:'bottom'})
+              .setLngLat(toLngLat(stop.coords))
+              .setPopup(popup)
+              .addTo(map);
+            el.addEventListener('mouseenter',()=>marker.togglePopup());
+            el.addEventListener('mouseleave',()=>{ if(marker.getPopup().isOpen()) marker.togglePopup(); });
+            markers.push(marker);
+          });
+
+          map.fitBounds(boundsFrom([CITY.puebla,CITY.pachuca,CITY.cdmx]),{
+            padding:{top:120,bottom:110,left:45,right:45},duration:0,maxZoom:9
+          });
+          mapLoading.classList.add('ready');
+          mapFallback.classList.remove('show');
+          focusStop(pendingFocusIndex);
+        });
+
+        map.on('error',e=>{
+          // MapLibre puede emitir errores de recursos individuales y seguir funcionando.
+          console.warn('Mapa:',e?.error || e);
+        });
+      } catch(err){
+        mapLoading.classList.add('ready');
+        mapFallback.classList.add('show');
+        console.warn(err);
+      }
+    }
+
+    function setMarkerStates(index){
+      markers.forEach((marker,i)=>{
+        const el=marker.getElement()?.querySelector('.memory-marker');
+        if(!el) return;
+        el.classList.toggle('active',i===index);
+        el.classList.toggle('past',i<index);
+      });
+    }
+
+    function focusStop(index){
+      pendingFocusIndex=index;
+      if(!map || !mapReady || index<0 || index>=stops.length) return;
+      const stop=stops[index];
+
+      setGeoJSON('route-progress',stops.slice(0,index+1).map(s=>s.coords));
+
+      if(Array.isArray(stop.trip) && stop.trip.length>1){
+        setGeoJSON('active-trip',stop.trip);
+        map.setPaintProperty('active-trip','line-opacity',.86);
+        map.fitBounds(boundsFrom(stop.trip),{
+          padding:{top:125,bottom:150,left:46,right:46},duration:1250,maxZoom:10
+        });
+      } else {
+        setGeoJSON('active-trip',[stop.coords]);
+        map.setPaintProperty('active-trip','line-opacity',0);
+        const mobile=window.matchMedia('(max-width:759px)').matches;
+        map.flyTo({
+          center:toLngLat(stop.coords),
+          zoom:stop.zoom || 13,
+          duration:1250,
+          essential:true,
+          offset:mobile ? [0,-95] : [-180,0]
+        });
+      }
+      setMarkerStates(index);
+    }
+
+    function formatCoords(coords){
+      return `LAT ${coords[0].toFixed(4)} · LON ${coords[1].toFixed(4)}`;
+    }
+
+    function setActive(index){
+      if(index===activeIndex || index<0 || index>=stops.length) return;
+      activeIndex=index;
+      const stop=stops[index];
+      document.querySelectorAll('.memory-stop').forEach((el,i)=>el.classList.toggle('is-active',i===index));
+      hudTitle.textContent=stop.title;
+      hudDate.textContent=`${stop.date} · PARADA ${String(index+1).padStart(2,'0')}/16`;
+      hudCoords.textContent=formatCoords(stop.coords);
+      hudProgress.style.width=`${((index+1)/stops.length)*100}%`;
+      focusStop(index);
+      gpsTone(false);
+      if(navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function ensureAudio(){
+      if(!audioCtx){
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(AC) audioCtx=new AC();
+      }
+      if(audioCtx?.state==='suspended') audioCtx.resume();
+    }
+
+    function gpsTone(strong=false){
+      if(!audioEnabled) return;
+      ensureAudio();
+      if(!audioCtx) return;
+      const now=audioCtx.currentTime;
+      const master=audioCtx.createGain();
+      master.gain.setValueAtTime(.0001,now);
+      master.gain.exponentialRampToValueAtTime(strong?.045:.028,now+.012);
+      master.gain.exponentialRampToValueAtTime(.0001,now+.27);
+      master.connect(audioCtx.destination);
+      [strong?660:560,strong?880:740].forEach((freq,j)=>{
+        const osc=audioCtx.createOscillator();
+        const gain=audioCtx.createGain();
+        osc.type='sine';osc.frequency.value=freq;
+        gain.gain.value=j===0?.7:.35;
+        osc.connect(gain).connect(master);
+        osc.start(now+j*.055);osc.stop(now+.18+j*.055);
+      });
+    }
+
+    soundBtn.addEventListener('click',()=>{
+      audioEnabled=!audioEnabled;
+      soundBtn.setAttribute('aria-pressed',String(audioEnabled));
+      soundBtn.textContent=audioEnabled?'🔊':'🔇';
+      soundBtn.setAttribute('aria-label',audioEnabled?'Desactivar sonido GPS':'Activar sonido GPS');
+      if(audioEnabled){ensureAudio();gpsTone(true)}
+    });
+
+    startJourney.addEventListener('click',()=>{
+      document.getElementById('stop-1').scrollIntoView({behavior:'smooth',block:'center'});
+    });
+
+    document.getElementById('zoomIn').addEventListener('click',()=>map?.zoomIn({duration:450}));
+    document.getElementById('zoomOut').addEventListener('click',()=>map?.zoomOut({duration:450}));
+    document.getElementById('showRoute').addEventListener('click',()=>{
+      if(!map || !mapReady) return;
+      setGeoJSON('active-trip',[stops[Math.max(activeIndex,0)].coords]);
+      map.setPaintProperty('active-trip','line-opacity',0);
+      map.fitBounds(boundsFrom([CITY.puebla,CITY.pachuca,CITY.cdmx]),{
+        padding:{top:125,bottom:125,left:45,right:45},duration:1100,maxZoom:9
+      });
+    });
+
+    const observer=new IntersectionObserver(entries=>{
+      const visible=entries
+        .filter(e=>e.isIntersecting)
+        .sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+      if(!visible) return;
+      const idx=Number(visible.target.dataset.index);
+      if(Number.isFinite(idx)) setActive(idx);
+    },{root:null,rootMargin:'-24% 0px -35% 0px',threshold:[.12,.25,.42,.60]});
+
+    document.querySelectorAll('.memory-stop').forEach(el=>observer.observe(el));
+
+    function celebrate(){
+      if(finalCelebrated) return;
+      finalCelebrated=true;
+      gpsTone(true);
+      const glyphs=['♡','♥','✦','♡','·'];
+      for(let i=0;i<34;i++){
+        const p=document.createElement('span');
+        p.className='particle';
+        p.textContent=glyphs[Math.floor(Math.random()*glyphs.length)];
+        p.style.setProperty('--x',`${(Math.random()-.5)*360}px`);
+        p.style.setProperty('--y',`${-80-Math.random()*430}px`);
+        p.style.setProperty('--r',`${(Math.random()-.5)*130}deg`);
+        p.style.left=`${18+Math.random()*64}%`;
+        p.style.top=`${45+Math.random()*30}%`;
+        p.style.color=Math.random()>.45?'#db6a9a':'#f1a9c4';
+        p.style.animationDelay=`${Math.random()*.45}s`;
+        particles.appendChild(p);
+        setTimeout(()=>p.remove(),3100);
+      }
+    }
+
+    const finalObserver=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting && e.intersectionRatio>.35){
+          hudTitle.textContent='Destino alcanzado · 6 meses';
+          hudDate.textContent='ROSITA + OMAR · ROUTE COMPLETE';
+          hudCoords.textContent='PRÓXIMO DESTINO · JUNTOS ♡';
+          hudProgress.style.width='100%';
+          celebrate();
+        }
+      });
+    },{threshold:[.35,.6]});
+    finalObserver.observe(finalSection);
+
+    // Si vuelve desde el final hacia una parada, el HUD se actualiza otra vez por IntersectionObserver.
+    window.addEventListener('load',initMap,{once:true});
+    window.addEventListener('resize',()=>map?.resize());
+  })();
+  </script>
+</body>
+</html>
